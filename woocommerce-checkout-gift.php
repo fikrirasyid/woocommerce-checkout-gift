@@ -72,7 +72,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 */
 		public function settings( $settings ){	
 
-			$recent_products = array_merge( array( '' => __( 'Select product as gift' ) ), $this->get_products() );
+			$recent_products = $this->get_products( false, 'init' );
 
 			$settings[] = array( 
 				'title' => __( 'Checkout Gift', 'woocommerce' ), 
@@ -93,7 +93,8 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			$settings[] = array(
 				'title'             => __( 'Select Product as Gift', 'woocommerce' ),
 				'type'              => 'select',
-				'class'				=> 'woocommerce-checkout-gift-get-product',
+				'id'				=> 'woocommerce_checkout_gift_product',
+				'class'				=> 'woocommerce-checkout-gift-product',
 				'default'           => __( 'Select Gift' ),
 				'desc'      		=> __( 'Choose product to be given', 'woocommerce' ),
 				'options'           => $recent_products,
@@ -118,7 +119,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 * @param string 	search term
 		 * @return array
 		 */
-		private function get_products( $term = false ){
+		private function get_products( $term = false, $mode = false ){
 			$args = array(
 				'post_status' 	=> 'publish',
 				'post_type'		=> 'product',
@@ -130,6 +131,19 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			}
 
 			$products = get_posts( $args );
+
+			if( 'init' == $mode ){
+				$default = get_option( 'woocommerce_checkout_gift_product' );
+
+				if( $default && '' != $default ){
+					$post 							= get_post( $default );
+					$default_product 				= new stdClass();
+					$default_product->ID 			= $default;
+					$default_product->post_title 	= $post->post_title;
+
+					$products[] = $default_product;
+				}
+			}			
 
 			return $this->_prepare_products( $products );
 		}
@@ -144,6 +158,10 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		private function _prepare_products( $posts = array(), $mode = 'init' ){
 		
 			$products = array();
+
+			if( 'init' == $mode ){
+				$products[''] = __( 'Select product as gift', 'wooocommerce-checkout-gift' );
+			}
 
 			if( ! empty( $posts ) ){
 

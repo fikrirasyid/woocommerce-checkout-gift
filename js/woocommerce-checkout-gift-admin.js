@@ -1,5 +1,5 @@
 jQuery(document).ready(function($) { 
-	$('.woocommerce-checkout-gift-get-product').ajaxChosen({
+	$('.woocommerce-checkout-gift-product').ajaxChosen({
 		type : 'GET',
 		url : 'admin-ajax.php?action=woocommerce_checkout_gift_get_products',
 		dataType : 'json'
