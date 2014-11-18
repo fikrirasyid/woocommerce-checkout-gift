@@ -49,6 +49,9 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			// Adding gift to cart
 			add_action( 'woocommerce_checkout_process', 					array( $this, 'add_gift_to_cart' ) );
 
+			// Adding metadata to the newly created order
+			add_action( 'woocommerce_checkout_order_processed', 			array( $this, 'add_gift_metadata_to_order' ) );
+
 			// Set price as zero price for gift
 			add_action( 'woocommerce_calculate_totals', 					array( $this, 'set_gift_price' ) );
 		}
@@ -274,6 +277,21 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			 */
 			if( $this->is_eligible_for_gift() ){
 				WC()->cart->add_to_cart( $this->gift_id() );
+			}
+		}
+
+		/**
+		 * Adding metadata to newly created order so we can display notification for user
+		 * 
+		 * @access public
+		 * @param int 	order id
+		 * @return obj 	posted form
+		 */
+		public function add_gift_metadata_to_order( $order_id, $posted ){
+
+			if( $this->is_eligible_for_gift() ){
+				update_post_meta( $order_id, '_woocommerce_checkout_gift_product_id', $this->gift_id() );
+				update_post_meta( $order_id, '_woocommerce_checkout_gift_purchase_limit', $this->minimum_gift_purchase() );
 			}
 		}
 
