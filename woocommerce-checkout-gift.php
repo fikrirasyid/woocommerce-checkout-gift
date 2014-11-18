@@ -40,8 +40,17 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			// Enqueueing scripts
 			add_action( 'admin_enqueue_scripts', array( $this, 'admin_scripts' ) );
 
+			// Adding settings to Dashboard > WooCommerce > Settings > Checkout
 			add_filter( 'woocommerce_payment_gateways_settings', 			array( $this, 'settings' ) );
+
+			// Providing endpoint for product autocomplete
 			add_action( 'wp_ajax_woocommerce_checkout_gift_get_products', 	array( $this, 'get_products_endpoint' ) );
+
+			// Adding gift to cart
+			add_action( 'woocommerce_checkout_process', 					array( $this, 'add_gift_to_cart' ) );
+
+			// Set price as zero price for gift
+			add_action( 'woocommerce_calculate_totals', 					array( $this, 'set_gift_price' ) );
 		}
 
 		/**
@@ -84,7 +93,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			$settings[] = array(
 				'title'    => __( 'Purchase Limit', 'woocommerce' ),
 				'desc'     => __( 'Grant user a gift if his/her amout of purchase passes this limit. To disable gift, set the value to 0', 'woocommerce' ),
-				'id'       => 'checkout_gift_purchase_limit',
+				'id'       => 'woocommerce_checkout_gift_purchase_limit',
 				'type'     => 'number',
 				'default'  => 0,
 				'desc_tip' => true,
@@ -213,6 +222,85 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 
 			die();
 		}
+
+		/**
+		 * Get minimum amout of purchase for granting gift
+		 * 
+		 * @access private
+		 * @return int
+		 */
+		private function minimum_gift_purchase(){
+			$minimum_gift_purchase = intval( get_option( 'woocommerce_checkout_gift_purchase_limit', 0 ) );
+
+			return $minimum_gift_purchase;
+		}
+
+		/**
+		 * Get product ID of gift
+		 * 
+		 * @access private
+		 * @return int
+		 */
+		private function gift_id(){
+			$gift_id = get_option( 'woocommerce_checkout_gift_product', false );
+
+			return $gift_id;
+		}
+
+		/**
+		 * Conditional method for checking current cart's status for gift
+		 * 
+		 * @access private
+		 * @return bool
+		 */
+		private function is_eligible_for_gift(){
+			if( 0 != $this->minimum_gift_purchase() && WC()->cart->subtotal_ex_tax > $this->minimum_gift_purchase() ){
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		/**
+		 * Adding gift to cart during checkout process if the amount of purchase passes the gift minimum limit
+		 * 
+		 * @access public
+		 * @return void
+		 */
+		public function add_gift_to_cart(){
+
+			/**
+			 * Check if minimum gift purchase value is set and current cart passes it
+			 */
+			if( $this->is_eligible_for_gift() ){
+				WC()->cart->add_to_cart( $this->gift_id() );
+			}
+		}
+
+		/**
+		 * Change the gift price to free
+		 * 
+		 * @access public
+		 * @return void
+		 */
+		public function set_gift_price( $cart ){
+			add_filter( 'woocommerce_get_price', array( $this, 'gift_price' ), 10, 2 );
+		}
+
+		/**
+		 * Set gift price to zero upon checkout
+		 * 
+		 * @access public
+		 * @return int|bool
+		 */
+		public function gift_price( $price, $product ){
+			if( $this->gift_id() == $product->id && defined('WOOCOMMERCE_CHECKOUT') ){
+				return 0;				
+			} else {
+				return $price;
+			}
+		}
+
 	}	
 	new Woocommerce_Checkout_Gift;
 }
