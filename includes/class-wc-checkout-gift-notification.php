@@ -13,21 +13,24 @@ class WC_Checkout_Gift_Notification{
 		$this->wc_checkout_gift = new WC_Checkout_Gift;
 
 		// Print notification on qualified order receipt and email
-		add_action( 'woocommerce_thankyou', 	array( $this, 'notification' ), 2 );
+		add_action( 'woocommerce_thankyou', 				array( $this, 'order_received_notification' ), 2 );
+
+    	// Append notification on qualified customer Emails
+    	add_action( 'woocommerce_email_after_order_table', 	array( $this, 'email_notification' ), 5, 3 );		
 	}
 
 	/**
-	 * Print gift notification on qualified order-received page
+	 * Print gift notification
 	 * 
-	 * @access public
+	 * @access private
 	 * @param int 	order id
 	 * @return void
 	 */
-	public function notification( $order_id ){
+	private function notification( $order_id, $mode = 'receipt' ){
 		$product_id 			= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'product_id' ), true );
 		$minimum_purchase 		= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'minimum_purchase' ), true );
 		$notification_message 	= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'notification_message' ), true );
-		$style 					= apply_filters( 'woocommerce_checkout_notification_box_styling', 'border: 1px solid #65A871; padding: 10px; text-align: center; background: #99F2A9; margin: 5px 0 20px; float: left; width: 100%;' );
+		$style 					= apply_filters( "woocommerce_checkout_gift_notification_message_styling_{$mode}", 'border: 1px solid #317D24; padding: 10px; text-align: center; background: #52AD42; margin: 5px 0 20px; display: block; color: white;' );
 		$product 				= new WC_Product( $product_id );
 
 		if( $product_id && $minimum_purchase && $notification_message && $product->is_visible() ){
@@ -38,6 +41,32 @@ class WC_Checkout_Gift_Notification{
 			echo $message;
 			echo '</div>';
 		}
+	}
+
+	/**
+	 * Print gift notification on qualified order-received page
+	 * 
+	 * @access public
+	 * @param int 	order id
+	 * @return void
+	 */
+	public function order_received_notification( $order_id ){
+		$this->notification( $order_id, 'order_received' );
+	}
+
+	/**
+	 * Print gift notification on qualified customer email
+	 * 
+	 * @access public
+     * @param WC_Order $order
+     * @param bool $sent_to_admin
+     * @param bool $plain_text
+     * @return void
+	 */
+	public function email_notification( $order, $sent_to_admin, $plain_text = false ){
+    	if ( ! $sent_to_admin && 'on-hold' === $order->status ) {
+    		$this->notification( $order->id, 'email' );
+		}		
 	}
 }
 new WC_Checkout_Gift_Notification;
