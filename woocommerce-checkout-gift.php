@@ -90,15 +90,15 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			$recent_products = $this->get_products( false, 'init' );
 
 			$settings[] = array( 
-				'title' => __( 'Checkout Gift', 'woocommerce' ), 
+				'title' => __( 'Checkout Gift', 'woocommerce-checkout-gift' ), 
 				'type' => 'title', 
-				'desc' => __( 'Grant your user a gift if his/her purchase amout passes the limit defined below', 'woocommerce' ), 
+				'desc' => __( 'Grant your user a gift if his/her purchase amout passes the limit defined below', 'woocommerce-checkout-gift' ), 
 				'id' => 'checkout_gift_options' 
 			);
 
 			$settings[] = array(
-				'title'    => __( 'Purchase Limit', 'woocommerce' ),
-				'desc'     => __( 'Grant user a gift if his/her amout of purchase passes this limit. To disable gift, set the value to 0', 'woocommerce' ),
+				'title'    => __( 'Purchase Limit', 'woocommerce-checkout-gift' ),
+				'desc'     => __( 'Grant user a gift if his/her amout of purchase passes this limit. To disable gift, set the value to 0', 'woocommerce-checkout-gift' ),
 				'id'       => 'woocommerce_checkout_gift_purchase_limit',
 				'type'     => 'number',
 				'default'  => 0,
@@ -106,22 +106,22 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			);
 
 			$settings[] = array(
-				'title'             => __( 'Select Product as Gift', 'woocommerce' ),
+				'title'             => __( 'Select Product as Gift', 'woocommerce-checkout-gift' ),
 				'type'              => 'select',
 				'id'				=> 'woocommerce_checkout_gift_product',
 				'class'				=> 'woocommerce-checkout-gift-product',
 				'default'           => __( 'Select Gift' ),
-				'desc'      		=> __( 'Choose product to be given', 'woocommerce' ),
+				'desc'      		=> __( 'Choose product to be given', 'woocommerce-checkout-gift' ),
 				'options'           => $recent_products,
 				'desc_tip'          => true,
 				'custom_attributes' => array(
-					'data-placeholder' => __( 'Select Gift', 'woocommerce' )
+					'data-placeholder' => __( 'Select Gift', 'woocommerce-checkout-gift' )
 				)
 			);	
 
 			$settings[] = array(
-				'title'    => __( 'Gift Notification Message', 'woocommerce' ),
-				'desc'     => __( 'This message will appear in qualified order page and emails.', 'woocommerce' ),
+				'title'    => __( 'Gift Notification Message', 'woocommerce-checkout-gift' ),
+				'desc'     => __( 'This message will appear in qualified order page and emails.', 'woocommerce-checkout-gift' ),
 				'id'       => 'woocommerce_checkout_gift_notification_message',
 				'css'      => 'width:100%; height: 75px;',
 				'type'     => 'textarea',
