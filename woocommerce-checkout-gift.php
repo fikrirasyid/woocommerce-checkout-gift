@@ -17,25 +17,90 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  * Check if WooCommerce is active
  **/
 if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) {
+
     /**
      * If the plugin is called before woocommerce, we need to include it first
      */
-    if( !class_exists( 'Woocommerce' ) )
-        include_once( ABSPATH . 'wp-content/plugins/woocommerce/woocommerce.php' );
+    if( !class_exists( 'Woocommerce' ) ){
+        include_once( ABSPATH . 'wp-content/plugins/woocommerce/woocommerce.php' );    	
+    }
 	
-	class Woocommerce_Checkout_Gift{
-
+	/**
+	 * Variables and values 
+	 */
+	class WC_Checkout_Gift{
+		var $prefix;
 		var $plugin_url;
 		var $plugin_dir;
-		var $current_time;
 
 		/**
-		 * Init the method
+		 * Construct the class
 		 */
-		function __construct(){
-			$this->plugin_url = untrailingslashit( plugins_url( '/', __FILE__ ) );
-			$this->plugin_dir = plugin_dir_path( __FILE__ );
-			$this->current_time = current_time( 'timestamp' );
+		public function __construct(){
+			$this->prefix 		= '_woocommerce_checkout_gift_';
+			$this->plugin_url 	= untrailingslashit( plugins_url( '/', __FILE__ ) );
+			$this->plugin_dir 	= plugin_dir_path( __FILE__ );
+		}
+
+		/**
+		 * Get option key, basically prefix + key. Useful for option
+		 * 
+		 * @access public
+		 * @param string 	key
+		 * @return string 	key
+		 */
+		public function get_key( $key ){
+
+			return "{$this->prefix}{$key}";
+		}
+
+		/**
+		 * Get product ID which is set as gift
+		 * 
+		 * @access public
+		 * @param string 	product_id|minimum_purchase|notification_message
+		 * @param bool 		is intended value is integer?
+		 * @return int|bool product ID
+		 */
+		public function get_option( $key, $is_int = false ){
+			// Define key
+			$key = $this->get_key( $key );
+
+			// Get default value
+			switch ( $key ) {
+				case 'notification_message':
+					$default = __( "Congratulation! Your amout of purchase is more than %MINIMUM_PURCHASE% so you are eligible to get %PRODUCT_NAME% for free!", 'woocommerce-checkout-gift' );
+					break;
+				
+				default:
+					$default = 0;
+					break;
+			}
+
+			// Get value
+			$value = get_option( $key, $default );
+
+			// Return value
+			if( $is_int ){
+				return intval( $value );
+			} else {
+				return $value;
+			}
+		}		
+	}
+
+	/**
+	 * Plugin settings
+	 */
+	class WC_Checkout_Gift_Settings{
+
+		var $wc_checkout_gift;
+
+		/**
+		 * Construct the class
+		 */
+		public function __construct(){
+			$this->wc_checkout_gift = new WC_Checkout_Gift;
 
 			// Enqueueing scripts
 			add_action( 'admin_enqueue_scripts', array( $this, 'admin_scripts' ) );
@@ -45,18 +110,6 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 
 			// Providing endpoint for product autocomplete
 			add_action( 'wp_ajax_woocommerce_checkout_gift_get_products', 	array( $this, 'get_products_endpoint' ) );
-
-			// Adding gift to cart
-			add_action( 'woocommerce_checkout_process', 					array( $this, 'add_gift_to_cart' ) );
-
-			// Adding metadata to the newly created order
-			add_action( 'woocommerce_checkout_order_processed', 			array( $this, 'add_gift_metadata_to_order' ) );
-
-			// Set price as zero price for gift
-			add_action( 'woocommerce_calculate_totals', 					array( $this, 'set_gift_price' ) );
-
-			// Print notification on qualified order receipt and email
-			add_action( 'woocommerce_thankyou', 							array( $this, 'notification' ), 2 );
 		}
 
 		/**
@@ -74,7 +127,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 
 			// Only enqueue the script on bulk sale screen
 			if( 'woocommerce_page_wc-settings' == $screen->id ){
-				wp_enqueue_script( 'woocommerce-checkout-gift', $this->plugin_url . '/js/woocommerce-checkout-gift-admin.js', array( 'jquery', 'ajax-chosen' ), '0.1' );
+				wp_enqueue_script( 'woocommerce-checkout-gift', $this->wc_checkout_gift->plugin_url . '/js/woocommerce-checkout-gift-admin.js', array( 'jquery', 'ajax-chosen' ), '0.1' );
 			}
 		}
 
@@ -90,42 +143,42 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 			$recent_products = $this->get_products( false, 'init' );
 
 			$settings[] = array( 
-				'title' => __( 'Checkout Gift', 'woocommerce-checkout-gift' ), 
-				'type' => 'title', 
-				'desc' => __( 'Grant your user a gift if his/her purchase amout passes the limit defined below', 'woocommerce-checkout-gift' ), 
-				'id' => 'checkout_gift_options' 
+				'title' 				=> __( 'Checkout Gift', 'woocommerce-checkout-gift' ), 
+				'type' 					=> 'title', 
+				'desc' 					=> __( 'Grant your user a gift if his/her purchase amout passes the minimum limit defined below', 'woocommerce-checkout-gift' ), 
+				'id' 					=> 'checkout_gift_options' 
 			);
 
 			$settings[] = array(
-				'title'    => __( 'Purchase Limit', 'woocommerce-checkout-gift' ),
-				'desc'     => __( 'Grant user a gift if his/her amout of purchase passes this limit. To disable gift, set the value to 0', 'woocommerce-checkout-gift' ),
-				'id'       => 'woocommerce_checkout_gift_purchase_limit',
-				'type'     => 'number',
-				'default'  => 0,
-				'desc_tip' => true,
+				'title'   				=> __( 'Purchase Limit', 'woocommerce-checkout-gift' ),
+				'desc'     				=> __( 'Grant user a gift if his/her amout of purchase passes this limit. To disable gift, set the value to 0', 'woocommerce-checkout-gift' ),
+				'id'       				=> $this->wc_checkout_gift->get_key( 'minimum_purchase' ),
+				'type'     				=> 'number',
+				'default'  				=> 0,
+				'desc_tip' 				=> true,
 			);
 
 			$settings[] = array(
-				'title'             => __( 'Select Product as Gift', 'woocommerce-checkout-gift' ),
-				'type'              => 'select',
-				'id'				=> 'woocommerce_checkout_gift_product',
-				'class'				=> 'woocommerce-checkout-gift-product',
-				'default'           => __( 'Select Gift' ),
-				'desc'      		=> __( 'Choose product to be given', 'woocommerce-checkout-gift' ),
-				'options'           => $recent_products,
-				'desc_tip'          => true,
-				'custom_attributes' => array(
-					'data-placeholder' => __( 'Select Gift', 'woocommerce-checkout-gift' )
+				'title'             	=> __( 'Select Product as Gift', 'woocommerce-checkout-gift' ),
+				'type'              	=> 'select',
+				'id'					=> $this->wc_checkout_gift->get_key( 'product_id' ),
+				'class'					=> $this->wc_checkout_gift->get_key( 'product_id' ),
+				'default'           	=> __( 'Select Gift' ),
+				'desc'      			=> __( 'Choose product to be given', 'woocommerce-checkout-gift' ),
+				'options'           	=> $recent_products,
+				'desc_tip'          	=> true,
+				'custom_attributes'	 	=> array(
+					'data-placeholder' 	=> __( 'Select Gift', 'woocommerce-checkout-gift' )
 				)
 			);	
 
 			$settings[] = array(
-				'title'    => __( 'Gift Notification Message', 'woocommerce-checkout-gift' ),
-				'desc'     => __( 'This message will appear in qualified order page and emails.', 'woocommerce-checkout-gift' ),
-				'id'       => 'woocommerce_checkout_gift_notification_message',
-				'css'      => 'width:100%; height: 75px;',
-				'type'     => 'textarea',
-				'default'  => __( "Congratulation! Your amout of purchase is more than %LIMIT% so you are eligible to get %PRODUCT_NAME% for free!", 'woocommerce-checkout-gift' ),
+				'title'    				=> __( 'Gift Notification Message', 'woocommerce-checkout-gift' ),
+				'desc'     				=> __( 'This message will appear in qualified order page and emails.', 'woocommerce-checkout-gift' ),
+				'id'       				=> $this->wc_checkout_gift->get_key( 'notification_message' ),
+				'css'      				=> 'width:100%; height: 75px;',
+				'type'     				=> 'textarea',
+				'default'  				=> __( "Congratulation! Your amout of purchase is more than %MINIMUM_PURCHASE% so you are eligible to get %PRODUCT_NAME% for free!", 'woocommerce-checkout-gift' ),
 			);
 
 			$settings[] = array( 
@@ -169,7 +222,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 				}
 			}			
 
-			return $this->_prepare_products( $products );
+			return $this->prepare_products( $products );
 		}
 
 		/**
@@ -179,7 +232,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 * @param obj
 		 * @param array
 		 */
-		private function _prepare_products( $posts = array(), $mode = 'init' ){
+		private function prepare_products( $posts = array(), $mode = 'init' ){
 		
 			$products = array();
 
@@ -237,41 +290,42 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 
 			die();
 		}
+	}
+	new WC_Checkout_Gift_Settings;
+
+	/**
+	 * Processing on checkout
+	 */
+	class WC_Checkout_Gift_Checkout{
+
+		var $wc_checkout_gift;
 
 		/**
-		 * Get minimum amout of purchase for granting gift
+		 * Constructing the class
+		 */
+		public function __construct(){
+
+			$this->wc_checkout_gift = new WC_Checkout_Gift;
+
+			// Adding gift to cart
+			add_action( 'woocommerce_checkout_process', 					array( $this, 'add_gift_to_cart' ) );
+
+			// Adding metadata to the newly created order
+			add_action( 'woocommerce_checkout_order_processed', 			array( $this, 'add_gift_metadata_to_order' ) );
+
+			// Set price as zero price for gift
+			add_action( 'woocommerce_calculate_totals', 					array( $this, 'set_gift_price' ) );
+
+		}
+
+		/**
+		 * Get minimum purchase value
 		 * 
 		 * @access private
 		 * @return int
 		 */
-		private function minimum_gift_purchase(){
-			$minimum_gift_purchase = intval( get_option( 'woocommerce_checkout_gift_purchase_limit', 0 ) );
-
-			return $minimum_gift_purchase;
-		}
-
-		/**
-		 * Get value of notification message
-		 * 
-		 * @access private
-		 * @return string
-		 */
-		private function notification_message(){
-			$message = get_option( 'woocommerce_checkout_gift_notification_message', __( "Congratulation! Your amout of purchase is more than %LIMIT% so you are eligible to get %PRODUCT_NAME% for free!", 'woocommerce-checkout-gift' ) );
-
-			return $message;
-		}
-
-		/**
-		 * Get product ID of gift
-		 * 
-		 * @access private
-		 * @return int
-		 */
-		private function gift_id(){
-			$gift_id = get_option( 'woocommerce_checkout_gift_product', false );
-
-			return $gift_id;
+		private function minimum_purchase(){
+			return $this->wc_checkout_gift->get_option( 'minimum_purchase' );
 		}
 
 		/**
@@ -280,27 +334,32 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 * @access private
 		 * @return bool
 		 */
-		private function is_eligible_for_gift(){
-			if( 0 != $this->minimum_gift_purchase() && WC()->cart->subtotal_ex_tax > $this->minimum_gift_purchase() ){
+		private function is_qualified_for_gift(){
+
+			if( 0 != $this->minimum_purchase() && WC()->cart->subtotal_ex_tax > $this->minimum_purchase() ){
+
 				return true;
+
 			} else {
+
 				return false;
+
 			}
+
 		}
 
 		/**
-		 * Adding gift to cart during checkout process if the amount of purchase passes the gift minimum limit
+		 * Adding gift to cart during checkout process if the amount of purchase is qualified for the gift
 		 * 
 		 * @access public
 		 * @return void
 		 */
 		public function add_gift_to_cart(){
 
-			/**
-			 * Check if minimum gift purchase value is set and current cart passes it
-			 */
-			if( $this->is_eligible_for_gift() ){
-				WC()->cart->add_to_cart( $this->gift_id() );
+			if( $this->is_qualified_for_gift() ){
+
+				WC()->cart->add_to_cart( $this->wc_checkout_gift->get_option( 'product_id' ) );
+
 			}
 		}
 
@@ -313,10 +372,13 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 */
 		public function add_gift_metadata_to_order( $order_id, $posted ){
 
-			if( $this->is_eligible_for_gift() ){
-				update_post_meta( $order_id, '_woocommerce_checkout_gift_product_id', $this->gift_id() );
-				update_post_meta( $order_id, '_woocommerce_checkout_gift_purchase_limit', $this->minimum_gift_purchase() );
-				update_post_meta( $order_id, '_woocommerce_checkout_gift_notification_message', $this->notification_message() );
+			if( $this->is_qualified_for_gift() ){
+
+				$keys = array( 'product_id', 'minimum_purchase', 'notification_message' );
+
+				foreach ( $keys as $key ) {
+					update_post_meta( $order_id, $this->wc_checkout_gift->get_key( $key ), $this->wc_checkout_gift->get_option( $key ) );
+				}				
 			}
 		}
 
@@ -334,14 +396,35 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 * Set gift price to zero upon checkout
 		 * 
 		 * @access public
+		 * @param int 	 	price
+		 * @param obj 		product object
 		 * @return int|bool
 		 */
 		public function gift_price( $price, $product ){
-			if( $this->gift_id() == $product->id && defined('WOOCOMMERCE_CHECKOUT') ){
-				return 0;				
+			if( $this->wc_checkout_gift->get_option( 'product_id' ) == $product->id && defined('WOOCOMMERCE_CHECKOUT') ){
+				return 0;
 			} else {
 				return $price;
 			}
+		}		
+	}
+	new WC_Checkout_Gift_Checkout;
+
+	/**
+	 * Displaying notification
+	 */
+	class WC_Checkout_Gift_Notification{
+
+		var $wc_checkout_gift;
+
+		/**
+		 * Init the method
+		 */
+		function __construct(){
+			$this->wc_checkout_gift = new WC_Checkout_Gift;
+
+			// Print notification on qualified order receipt and email
+			add_action( 'woocommerce_thankyou', 	array( $this, 'notification' ), 2 );
 		}
 
 		/**
@@ -352,23 +435,21 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		 * @return void
 		 */
 		public function notification( $order_id ){
-			$gift_product_id 			= get_post_meta( $order_id, '_woocommerce_checkout_gift_product_id', true );
-			$gift_minimum_purchase 		= get_post_meta( $order_id, '_woocommerce_checkout_gift_purchase_limit', true );
-			$gift_notification_message 	= get_post_meta( $order_id, '_woocommerce_checkout_gift_notification_message', true );
-			$style 						= apply_filters( 'woocommerce_checkout_gift_notification_box_styling', 'border: 1px solid #65A871; padding: 10px; text-align: center; background: #99F2A9; margin: 5px 0 20px; float: left; width: 100%;' );
+			$product_id 			= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'product_id' ), true );
+			$minimum_purchase 		= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'minimum_purchase' ), true );
+			$notification_message 	= get_post_meta( $order_id, $this->wc_checkout_gift->get_key( 'notification_message' ), true );
+			$style 					= apply_filters( 'woocommerce_checkout_notification_box_styling', 'border: 1px solid #65A871; padding: 10px; text-align: center; background: #99F2A9; margin: 5px 0 20px; float: left; width: 100%;' );
+			$product 				= new WC_Product( $product_id );
 
-			$gift_product = new WC_Product( $gift_product_id );
-
-			if( $gift_product_id && $gift_minimum_purchase && $gift_notification_message && $gift_product->is_visible() ){
-				$message = str_replace('%PRODUCT_NAME%', '<span class="product-name">' . $gift_product->get_title() . '</span>', $gift_notification_message );
-				$message = str_replace( '%LIMIT%', wc_price( $gift_minimum_purchase ), $message );
+			if( $product_id && $minimum_purchase && $notification_message && $product->is_visible() ){
+				$message = str_replace('%PRODUCT_NAME%', '<span class="product-name">' . $product->get_title() . '</span>', $notification_message );
+				$message = str_replace( '%MINIMUM_PURCHASE%', wc_price( $minimum_purchase ), $message );
 
 				echo '<div class="woocommerce-checkout-gift-notification" style="'. $style .'">';
 				echo $message;
 				echo '</div>';
 			}
 		}
-
-	}	
-	new Woocommerce_Checkout_Gift;
+	}
+	new WC_Checkout_Gift_Notification;
 }
