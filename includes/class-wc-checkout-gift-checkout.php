@@ -16,11 +16,11 @@ class WC_Checkout_Gift_Checkout{
 		// Adding gift to cart
 		add_action( 'woocommerce_checkout_process', 					array( $this, 'add_gift_to_cart' ) );
 
-		// Adding metadata to the newly created order
-		add_action( 'woocommerce_checkout_order_processed', 			array( $this, 'add_gift_metadata_to_order' ) );
-
 		// Set price as zero price for gift
 		add_action( 'woocommerce_calculate_totals', 					array( $this, 'set_gift_price' ) );
+
+		// Adding metadata to the newly created order
+		add_action( 'woocommerce_checkout_order_processed', 			array( $this, 'add_gift_metadata_to_order' ) );
 
 	}
 
@@ -70,25 +70,6 @@ class WC_Checkout_Gift_Checkout{
 	}
 
 	/**
-	 * Adding metadata to newly created order so we can display notification for user
-	 * 
-	 * @access public
-	 * @param int 	order id
-	 * @return obj 	posted form
-	 */
-	public function add_gift_metadata_to_order( $order_id, $posted ){
-
-		if( $this->is_qualified_for_gift() ){
-
-			$keys = array( 'product_id', 'minimum_purchase', 'notification_message' );
-
-			foreach ( $keys as $key ) {
-				update_post_meta( $order_id, $this->wc_checkout_gift->get_key( $key ), $this->wc_checkout_gift->get_option( $key ) );
-			}				
-		}
-	}
-
-	/**
 	 * Change the gift price to free
 	 * 
 	 * @access public
@@ -116,5 +97,24 @@ class WC_Checkout_Gift_Checkout{
 			}
 		}
 	}	
+
+	/**
+	 * Adding metadata to newly created order so we can display notification for user
+	 * 
+	 * @access public
+	 * @param int 	order id
+	 * @return obj 	posted form
+	 */
+	public function add_gift_metadata_to_order( $order_id, $posted ){
+
+		if( $this->is_qualified_for_gift() ){
+
+			$keys = array( 'product_id', 'minimum_purchase', 'notification_message' );
+
+			foreach ( $keys as $key ) {
+				update_post_meta( $order_id, $this->wc_checkout_gift->get_key( $key ), $this->wc_checkout_gift->get_option( $key ) );
+			}				
+		}
+	}
 }
 new WC_Checkout_Gift_Checkout;
