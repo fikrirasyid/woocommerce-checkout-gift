@@ -22,7 +22,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
      * If the plugin is called before woocommerce, we need to include it first
      */
     if( !class_exists( 'Woocommerce' ) ){
-        include_once( ABSPATH . 'wp-content/plugins/woocommerce/woocommerce.php' );    	
+    	include_once(plugin_dir_path( dirname( __FILE__ ) ) . "/woocommerce/woocommerce.php"); 	
     }
 
 	/**
