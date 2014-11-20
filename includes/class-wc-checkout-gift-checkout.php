@@ -64,7 +64,7 @@ class WC_Checkout_Gift_Checkout{
 
 		if( $this->is_qualified_for_gift() ){
 
-			WC()->cart->add_to_cart( $this->wc_checkout_gift->get_option( 'product_id' ) );
+			WC()->cart->add_to_cart( $this->wc_checkout_gift->get_option( 'product_id' ), 1, '', '', array( 'is_woocommerce_checkout_gift' => true ) );
 
 		}
 	}
@@ -95,23 +95,26 @@ class WC_Checkout_Gift_Checkout{
 	 * @return void
 	 */
 	public function set_gift_price( $cart ){
-		add_filter( 'woocommerce_get_price', array( $this, 'gift_price' ), 10, 2 );
-	}
 
-	/**
-	 * Set gift price to zero upon checkout
-	 * 
-	 * @access public
-	 * @param int 	 	price
-	 * @param obj 		product object
-	 * @return int|bool
-	 */
-	public function gift_price( $price, $product ){
-		if( $this->wc_checkout_gift->get_option( 'product_id' ) == $product->id && defined('WOOCOMMERCE_CHECKOUT') ){
-			return 0;
-		} else {
-			return $price;
+		// Perform this on checkout only
+		if( ! defined('WOOCOMMERCE_CHECKOUT') )
+			return;
+
+		// Check if there's cart contents
+		if( isset( $cart->cart_contents) && ! empty( $cart->cart_contents ) ){
+
+			// Loop the cart's content
+			foreach ( $cart->cart_contents as $cart_key => $cart_item ) {
+
+				// Set the price to zero if this is the automatically added gift
+				if( isset( $cart_item['is_woocommerce_checkout_gift'] ) && $cart_item['is_woocommerce_checkout_gift'] ){
+
+					// Set price to zero
+					$cart_item['data']->price = 0;
+
+				}
+			}
 		}
-	}		
+	}	
 }
 new WC_Checkout_Gift_Checkout;
