@@ -13,10 +13,13 @@ class WC_Checkout_Gift_Notification{
 		$this->wc_checkout_gift = new WC_Checkout_Gift;
 
 		// Print notification on qualified order receipt and email
-		add_action( 'woocommerce_thankyou', 				array( $this, 'order_received_notification' ), 2 );
+		add_action( 'woocommerce_thankyou', 						array( $this, 'order_received_notification' ), 2 );
 
     	// Append notification on qualified customer Emails
-    	add_action( 'woocommerce_email_after_order_table', 	array( $this, 'email_notification' ), 5, 3 );		
+    	add_action( 'woocommerce_email_after_order_table', 			array( $this, 'email_notification' ), 5, 3 );
+
+    	// Set price as free instead of 0
+    	add_filter( 'woocommerce_order_formatted_line_subtotal', 	array( $this, 'format_price' ), 10, 3 );
 	}
 
 	/**
@@ -67,6 +70,24 @@ class WC_Checkout_Gift_Notification{
     	if ( ! $sent_to_admin && 'on-hold' === $order->status ) {
     		$this->notification( $order->id, 'email' );
 		}		
+	}
+
+	/**
+	 * Format the price as "Free" instead of 0
+	 * 
+	 * @access public
+	 * @param string 	formatted subtotal
+	 * @param array 	item data
+	 * @param obj 		order object
+	 * 
+	 * @return string
+	 */
+	public function format_price( $subtotal, $item, $order ){
+		if( wc_price( 0 ) == $subtotal ){
+			return '<span class="woocommerce-checkout-gift-free">' . __( 'FREE', 'woocommerce-checkout-gift' ) . '</span>';
+		} else {
+			return $subtotal;
+		}
 	}
 }
 new WC_Checkout_Gift_Notification;
